@@ -1,0 +1,134 @@
+#define BLYNK_TEMPLATE_ID "TMPL6gUI1XQRt"
+#define BLYNK_TEMPLATE_NAME "Fish Feeder"
+#define BLYNK_AUTH_TOKEN "dbvYHTgL6Zd1VcB3_xXxKAsr54jrqi6d"
+
+#include <OneWire.h>
+#include <DallasTemperature.h>
+#include <FastLED.h>
+
+#include <WiFi.h>
+#include <WiFiClient.h>
+#include <BlynkSimpleEsp32.h>
+#include <ESP32Servo.h>
+
+
+#define NUM_LEDS 10
+#define DATA_PIN 5
+#define CLOCK_PIN 13
+#define ONE_WIRE_BUS 14
+#define pHSensor A4
+#define floatSensorPin 15
+
+
+
+CRGB leds[NUM_LEDS];
+OneWire oneWire(ONE_WIRE_BUS);
+DallasTemperature sensors(&oneWire);
+
+int pH_Measurement;   
+float pH;     
+int WaterLevelSensor;
+float lowWaterAlarm;
+int ledLight;
+
+               
+Servo servo1;
+
+const int servoPin = 13;
+
+///////////////////////////// WIFI DETAILS /////////////////////////////
+char ssid[] = "Siyol-4G3D4D0D";
+char pass[] = "PASSWORD";
+
+
+
+void setup(void) {
+ 
+  Serial.begin(9600);
+  Blynk.begin(BLYNK_AUTH_TOKEN, ssid, pass);
+  servo1.attach(servoPin);
+  Serial.println("Dallas Temperature Sensor");
+  Serial.println("pH Sensor");
+  sensors.begin();
+  pinMode(floatSensorPin, INPUT_PULLUP);
+  FastLED.addLeds<WS2812B, DATA_PIN, GRB>(leds, NUM_LEDS);
+
+
+}
+ 
+void loop(void) {
+ ///////////////////////////// TEMPERATURE SENSORS /////////////////////////////
+  // Serial.print("Requesting temperatures...");
+  Blynk.run();
+  sensors.requestTemperatures();
+  // Serial.println("DONE");
+  float tempC = sensors.getTempCByIndex(0);
+  if (tempC != DEVICE_DISCONNECTED_C) {
+    Serial.print("Temperature : ");
+    Serial.println(tempC);
+    Blynk.virtualWrite(V1, tempC);
+  } else {
+    Serial.println("Could not read temperature data");
+  }
+///////////////////////////// pH SENSOR /////////////////////////////
+ pH_Measurement = analogRead(pHSensor);
+  float pH = pH_Measurement * (3.3  / 1023.0);
+  Serial.print("pH Probe Reading : ");
+  Serial.println(pH);
+  Blynk.virtualWrite(V4, pH);
+  delay(1000);
+
+///////////////////////////// LOW WATER SENSOR /////////////////////////////
+
+WaterLevelSensor = digitalRead(floatSensorPin);
+ if(WaterLevelSensor == LOW){
+Serial.println("Water Level is too Low!");
+Blynk.virtualWrite(V2, "WATER LEVEL IS LOW");
+ }
+
+ if(WaterLevelSensor == HIGH){
+  Serial.println("Water Level is Okay");
+  Blynk.virtualWrite(V2, "WATER LEVEL IS OKAY");
+ }
+      
+  
+///////////////////////////// FEEDER SECTION /////////////////////////////
+
+}
+
+BLYNK_WRITE(V0)
+{
+   int s0 = param.asInt();
+   if( s0 == 1){
+    Serial.println("Feed! my fish");
+    Blynk.logEvent("fish_feeder","Fish have been fed!");
+    for(int i =0 ; i<3;i++){
+       servo1.write(0);
+       delay(500);
+       servo1.write(270);
+       delay(1000);
+    }
+    servo1.write(0);
+    delay(500);
+   }else{ 
+  
+   }
+  
+}
+
+///////////////////////////// LED LIGHTING /////////////////////////////
+
+BLYNK_WRITE(V3){
+   int ledLight = param.asInt(); // assigning incoming value from pin V1 to a variable
+  
+  if (ledLight == 1){
+       fill_solid( leds, NUM_LEDS, CRGB::Pink);
+       FastLED.show();
+
+  } else if (ledLight == 0) {     
+        fill_solid( leds, NUM_LEDS, CRGB::Black);
+        FastLED.show();
+
+  }
+}
+   
